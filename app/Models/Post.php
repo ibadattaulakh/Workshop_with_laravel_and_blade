@@ -1,18 +1,12 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Post extends Model
 {
-    /** @use HasFactory<PostFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -22,75 +16,64 @@ class Post extends Model
         'content',
     ];
 
-    public function profile(): BelongsTo
+    public function profile()
     {
         return $this->belongsTo(Profile::class);
     }
 
-    public function parent(): BelongsTo
+    public function parent()
     {
         return $this->belongsTo(Post::class, 'parent_id');
     }
 
-    public function replies(): HasMany
+    public function replies()
     {
         return $this->hasMany(Post::class, 'parent_id');
     }
 
-    public function likes(): HasMany
+    public function likes()
     {
         return $this->hasMany(Like::class);
     }
 
-    public function reposts(): HasMany
+    public function repostOf()
     {
-        return $this->hasMany(Post::class, 'repost_of_id');
-    }
-
-    public function repostOf(): BelongsTo
-    {
+        // repost_of_id is the FK on the repost that points to the original Post
         return $this->belongsTo(Post::class, 'repost_of_id');
     }
 
-    public function isRepost(): bool
+    public function reposts()
     {
-        return $this->repost_of_id != null;
+        // reverse relation: all posts that reference this post as their original
+        return $this->hasMany(Post::class, 'repost_of_id');
     }
 
     public static function publish(Profile $profile, string $content): self
     {
         return static::create([
-            'profile_id' => $profile->id,
-            'content' => $content,
-            'parent_id' => null,
-            'repost_of_id' => null,
+            'profile_id'   => $profile->id,
+            'content'      => $content,
+            'parent_id'    => null, // not a reply
+            'repost_of_id' => null, // not a repost
         ]);
     }
 
-    public static function reply(Profile $profile, Post $post, string $content): self
+    public static function reply(Profile $profile, Post $original, string $content)
     {
         return static::create([
             'profile_id' => $profile->id,
-            'content' => $content,
-            'parent_id' => $post->id,
-            'repost_of_id' => null,
+            'parent_id'  => $original->id,
+            'content'    => $content,
         ]);
     }
 
-    public static function repost(Profile $profile, Post $post, ?string $content = null): self
+    public static function repost(Profile $profile, Post $original, $content = null)
     {
-        return static::firstOrCreate([
-            'profile_id' => $profile->id,
-            'content' => $content,
-            'parent_id' => null,
-            'repost_of_id' => $post->id,
+        return static::create([
+            'profile_id'   => $profile->id,
+            'content'      => $content,          // null for plain reposts
+            'parent_id'    => null,              // not a reply
+            'repost_of_id' => $original->id,
         ]);
-    }
-
-    public static function removeRepost(Profile $profile, Post $post): bool
-    {
-        return static::where('profile_id', $profile->id)
-            ->where('repost_of_id', $post->id)
-            ->delete() > 0;
     }
 }

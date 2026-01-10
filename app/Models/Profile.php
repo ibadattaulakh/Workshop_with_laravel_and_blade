@@ -1,76 +1,60 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use Database\Factories\ProfileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Profile extends Model
 {
-    /** @use HasFactory<ProfileFactory> */
     use HasFactory;
 
     protected $fillable = [
-        // 'name',
+        'user_id',
         'display_name',
         'handle',
         'bio',
         'avatar_url',
     ];
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function posts(): HasMany
+    public function posts()
     {
         return $this->hasMany(Post::class);
     }
 
-    public function topLevelPosts(): HasMany
+    public function topLevelPosts()
     {
+        // Only posts that are not replies (parent_id is null)
         return $this->hasMany(Post::class)->whereNull('parent_id');
     }
 
-    public function likes(): HasMany
+    public function likes()
     {
         return $this->hasMany(Like::class);
     }
 
-    public function follow(Profile $profile): void
-    {
-        Follow::createFollow($this, $profile);
-    }
-
-    public function followers(): BelongsToMany
+    public function followers()
     {
         return $this->belongsToMany(
             Profile::class,
             'follows',
-            'following_profile_id',
-            'follower_profile_id',
+            'following_profile_id',  // this profile is being followed
+            'follower_profile_id'    // the followers
         );
     }
 
-    public function followings(): BelongsToMany
+    public function following()
     {
         return $this->belongsToMany(
             Profile::class,
             'follows',
-            'follower_profile_id',
-            'following_profile_id',
+            'follower_profile_id',   // this profile follows others
+            'following_profile_id'   // the profiles it follows
         );
-    }
-
-    public function isFollowing(Profile $profile): bool
-    {
-        return $this->followings()->where('following_profile_id', $profile->id)->exists();
     }
 }

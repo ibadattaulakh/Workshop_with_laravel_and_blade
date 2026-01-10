@@ -6,47 +6,46 @@ use App\Models\Post;
 use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Post>
- */
 class PostFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
-    public function definition(): array
+    protected $model = Post::class;
+
+    public function definition()
     {
         return [
             'profile_id' => Profile::factory(),
-            'parent_id' => null,
-            'repost_of_id' => null,
-            'content' => $this->faker->realText(200),
+            'parent_id'  => null,
+            'repost_of_id' => null, // default
+            'content'    => $this->faker->realText(200),
         ];
     }
 
-    public function repost(Post $originalPost)
+    // Create a reply for a given parent post
+    public function reply(Post $parent)
     {
-        return $this->state([
-            'repost_of_id' => $originalPost->id,
+        return $this->state(function () use ($parent) {
+            return [
+                'parent_id' => $parent->id,
+                'content'   => $this->faker->text(200),
+            ];
+        });
+    }
+
+    // state for pure repost (no extra content)
+    public function repost(Post $original)
+    {
+        return $this->state(fn () => [
+            'repost_of_id' => $original->id,
             'content' => null,
         ]);
     }
 
-    public function quotePost(Post $originalPost)
+    // state for quote-repost
+    public function quoteRepost(Post $original)
     {
-        return $this->state([
-            'repost_of_id' => $originalPost->id,
-            'content' => $this->faker->realText(200),
-        ]);
-    }
-
-    public function reply(Post $parentPost)
-    {
-        return $this->state([
-            'parent_id' => $parentPost->id,
-            'content' => $this->faker->realText(200),
+        return $this->state(fn () => [
+            'repost_of_id' => $original->id,
+            'content' => $this->faker->realText(100),
         ]);
     }
 }
