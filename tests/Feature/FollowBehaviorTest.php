@@ -6,34 +6,40 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('profile cannot follow itself', function () {
+it('prevents a profile from following itself', function () {
     $profile = Profile::factory()->create();
 
-    expect(fn (): Follow => Follow::createFollow($profile, $profile))
-        ->toThrow(InvalidArgumentException::class, 'A profile cannot follow itself.');
+    expect(fn () => Follow::createFollow($profile, $profile))
+        ->toThrow(\InvalidArgumentException::class, 'A profile cannot follow itself.');
 });
 
-test('profile can follow another profile', function () {
-    $profile1 = Profile::factory()->create();
-    $profile2 = Profile::factory()->create();
+it('allows a profile to follow another profile', function () {
+    $profileOne = Profile::factory()->create();
+    $profileTwo = Profile::factory()->create();
 
-    $follow = Follow::createFollow($profile1, $profile2);
+    $follow = Follow::createFollow($profileOne, $profileTwo);
 
-    expect($profile1->followings->contains($profile2))->toBeTrue();
-    expect($profile2->followers->contains($profile1))->toBeTrue();
-    expect($follow->follower->id)->toBe($profile1->id);
-    expect($follow->following->id)->toBe($profile2->id);
+    expect($profileOne->followings->contains($profileTwo))->toBeTrue();
+    expect($profileTwo->followers->contains($profileOne))->toBeTrue();
+    expect($follow->follower_profile_id)->toBe($profileOne->id);
+    expect($follow->following_profile_id)->toBe($profileTwo->id);
 });
 
-test('profile can unfollow profile', function () {
-    $profile1 = Profile::factory()->create();
-    $profile2 = Profile::factory()->create();
+it('allows a profile to unfollow another profile', function () {
+    $profileOne = Profile::factory()->create();
+    $profileTwo = Profile::factory()->create();
 
-    $follow = Follow::createFollow($profile1, $profile2);
-    $success = Follow::removeFollow($profile1, $profile2);
+    $follow = Follow::createFollow($profileOne, $profileTwo);
 
-    expect($profile1->followings->contains($profile2))->toBeFalse();
-    expect($profile2->followers->contains($profile1))->toBeFalse();
+    $success = Follow::removeFollow($profileOne, $profileTwo);
+
+    // refresh relationships / model state
+    $profileOne->refresh();
+    $profileTwo->refresh();
+    $follow = $follow->fresh();
+
+    expect($profileOne->followings->contains($profileTwo))->toBeFalse();
+    expect($profileTwo->followers->contains($profileOne))->toBeFalse();
     expect($success)->toBeTrue();
-    expect($follow->fresh())->toBeNull();
+    expect($follow)->toBeNull();
 });

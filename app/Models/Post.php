@@ -48,6 +48,11 @@ class Post extends Model
         return $this->hasMany(Post::class, 'repost_of_id');
     }
 
+    public function isRepost(): bool
+    {
+        return ! is_null($this->repost_of_id);
+    }
+
     public static function publish(Profile $profile, string $content): self
     {
         return static::create([
@@ -67,13 +72,28 @@ class Post extends Model
         ]);
     }
 
-    public static function repost(Profile $profile, Post $original, $content = null)
+    // Create a repost (plain or quote). Returns the repost Post model.
+    public static function repost(Profile $profile, Post $original, ?string $content = null)
     {
-        return static::create([
-            'profile_id'   => $profile->id,
-            'content'      => $content,          // null for plain reposts
-            'parent_id'    => null,              // not a reply
-            'repost_of_id' => $original->id,
-        ]);
+        return static::firstOrCreate(
+            [
+                'profile_id'   => $profile->id,
+                'repost_of_id' => $original->id,
+            ],
+            [
+                'content'   => $content,
+                'parent_id' => null,
+            ]
+        );
+    }
+
+    // Remove a repost made by $profile of $original.
+    public static function removeRepost(Profile $profile, Post $original): bool
+    {
+        $deleted = static::where('profile_id', $profile->id)
+            ->where('repost_of_id', $original->id)
+            ->delete();
+
+        return $deleted > 0;
     }
 }

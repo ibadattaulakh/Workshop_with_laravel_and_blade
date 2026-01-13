@@ -1,119 +1,77 @@
 <?php
 
-
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\ProfileController;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route:: get ('/', function (){
     return view ('welcome');
 });
 
-Route::get('/feed', function () {
-    $feedItems = [
-        [
-            'profile' => [
-                'display_name' => 'Michael',
-                'handle'       => 'mmich_jj',
-                'avatar'       => '/images/michael.png',
-            ],
-            'posted_ago'  => '3h',
-            'content'     => '<p>I made this! <a href="#">#myartwork</a> <a href="#">#pixl</a></p><img src="/images/simon-chilling.png" alt="" />',
-            'like_count'  => 23,
-            'reply_count' => 23,
-            'repost_count' => 23,
-            'replies' => [
-                [
-                    'profile' => [
-                        'display_name' => 'Simon',
-                        'handle'       => 'simonswiss',
-                        'avatar'       => '/images/simon-chilling.png',
-                    ],
-                    'posted_ago'  => '1h',
-                    'content'     => '<p>Heh — this looks just like me!</p>',
-                    'like_count'  => 5,
-                    'reply_count' => 2,
-                    'repost_count' => 1,
-                ],
-            ],
-        ],
-        [
-            'profile' => [
-                'display_name' => 'Alessia',
-                'handle'       => 'alessia_draws',
-                'avatar'       => '/images/alessia.png',
-            ],
-            'posted_ago'  => '5h',
-            'content'     => '<p>Working on a new piece! <a href="#">#art</a> <a href="#">#digitalart</a></p>',
-            'like_count'  => 45,
-            'reply_count' => 12,
-            'repost_count' => 8,
-            'replies' => [],
-        ],
-        [
-            'profile' => [
-                'display_name' => 'Anne',
-                'handle'       => 'just_anne',
-                'avatar'       => '/images/anne.png',
-            ],
-            'posted_ago'  => '1d',
-            'content'     => '<p>Beautiful sunset today! <a href="#">#photography</a></p>',
-            'like_count'  => 67,
-            'reply_count' => 15,
-            'repost_count' => 22,
-            'replies' => [],
-        ],
-    ];
+// Development-only helper routes
+Route::get('/login-as-dev', function () {
+    Auth::loginUsingId(5);
+    return redirect('/home');
+})->name('login');
 
-    // Convert to objects so we can use $item->profile->avatar in views
-    $feedItems = json_decode(json_encode($feedItems));
+Route::get('/dev/login', function () {
+    $user = User::inRandomOrder()->first();
 
-    return view('feed', compact('feedItems'));
+    Auth::login($user);
+    session()->regenerate();
+
+    return redirect()->route('profiles.show', $user->profile);
+})->name('dev.login');
+
+Route::get('/dev/logout', function (Request $request) {
+    Auth::logout();
+
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect('/feed');
+})->name('dev.logout');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/home', [PostController::class, 'index'])
+        ->name('posts.index');
+    
+    Route::post('/posts', [PostController::class, 'store'])
+        ->name('posts.store');
+    
+    Route::post('/profiles/{profile}/posts/{post}/reply', [PostController::class, 'reply'])
+        ->name('posts.reply');
+    
+    Route::post('/profiles/{profile}/posts/{post}/repost', [PostController::class, 'repost'])
+        ->name('posts.repost');
+    
+    Route::post('/profiles/{profile}/posts/{post}/quote', [PostController::class, 'quote'])
+        ->name('posts.quote');
+    
+    Route::post('/profiles/{profile}/posts/{post}/like', [PostController::class, 'like'])
+        ->name('posts.like');
+    
+    Route::post('/profiles/{profile}/posts/{post}/unlike', [PostController::class, 'unlike'])
+        ->name('posts.unlike');
+    
+    Route::post('/profiles/{profile}/follow', [ProfileController::class, 'follow'])
+        ->name('profiles.follow');
+    
+    Route::post('/profiles/{profile}/unfollow', [ProfileController::class, 'unfollow'])
+        ->name('profiles.unfollow');
+    
+    Route::post('/profiles/{profile}/posts/{post}/destroy', [PostController::class, 'destroy'])
+        ->name('posts.destroy');
 });
 
-Route::get('/profile', function () {
-    $feedItems = [
-        [
-            'profile' => [
-                'display_name' => 'Michael',
-                'handle'       => 'mmich_jj',
-                'avatar'       => '/images/michael.png',
-            ],
-            'posted_ago'  => '3h',
-            'content'     => '<p>I made this! <a href="#">#myartwork</a> <a href="#">#pixl</a></p><img src="/images/simon-chilling.png" alt="" />',
-            'like_count'  => 23,
-            'reply_count' => 23,
-            'repost_count' => 23,
-            'replies' => [
-                [
-                    'profile' => [
-                        'display_name' => 'Simon',
-                        'handle'       => 'simonswiss',
-                        'avatar'       => '/images/simon-chilling.png',
-                    ],
-                    'posted_ago'  => '1h',
-                    'content'     => '<p>Heh — this looks just like me!</p>',
-                    'like_count'  => 5,
-                    'reply_count' => 2,
-                    'repost_count' => 1,
-                ],
-            ],
-        ],
-        [
-            'profile' => [
-                'display_name' => 'Michael',
-                'handle'       => 'mmich_jj',
-                'avatar'       => '/images/michael.png',
-            ],
-            'posted_ago'  => '1d',
-            'content'     => '<p>Another great day creating! <a href="#">#creativity</a></p>',
-            'like_count'  => 34,
-            'reply_count' => 8,
-            'repost_count' => 15,
-            'replies' => [],
-        ],
-    ];
+Route::get('/profiles/{profile}/replies', [ProfileController::class, 'replies'])
+    ->name('profiles.replies');
 
-    // Convert to objects so we can use $item->profile->avatar in views
-    $feedItems = json_decode(json_encode($feedItems));
+Route::get('/{profile:handle}/status/{post}', [PostController::class, 'show'])
+    ->scopeBindings()
+    ->name('posts.show');
 
-    return view('profile', compact('feedItems'));
-});
+Route::get('/{profile:handle}', [ProfileController::class, 'show'])->name('profiles.show');

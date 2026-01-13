@@ -18,91 +18,119 @@ class PostController extends Controller
 {
     public function index()
     {
-        $profile = Auth::user()->profile;
+        if (!auth()->check()) {
+            abort(403);
+        }
+        
+        // Get the authenticated user's profile
+        // Refresh the user to ensure we have the latest data
+        $user = auth()->user();
+        $user->refresh();
+        
+        // Load the profile relationship fresh
+        $user->load('profile');
+        $viewer = $user->profile;
+        
+        if (!$viewer) {
+            abort(500, 'User profile not found');
+        }
+        
+        $posts = \App\Queries\TimelineQuery::forViewer($viewer)->get();
 
-        $posts = TimelineQuery::forViewer($profile)->get();
-
-        return Inertia::render('Posts/Index', [
-            'profile' => $profile->toResource(),
-            'posts' => $posts->toResourceCollection(),
-        ]);
+        return view('posts.index', compact('posts', 'viewer'));
     }
 
     public function show(Profile $profile, Post $post)
     {
-        $post = PostThreadQuery::for($post, Auth::user()?->profile)->load();
+        $viewer = auth()->check() ? auth()->user()->profile : null;
+        
+        $post = \App\Queries\PostThreadQuery::for($post, $viewer)->load();
 
-        return Inertia::render('Posts/Show', [
-            'post' => $post->toResource(),
-        ]);
+        return view('posts.show', compact('post'));
     }
 
-    public function store(CreatePostRequest $createPostRequest)
+    public function store(CreatePostRequest $request)
     {
         $profile = Auth::user()->profile;
 
-        Post::publish($profile, $createPostRequest->input('content'));
+        Post::publish($profile, $request->validated()['content']);
 
-        return to_route('posts.index')->with('success', 'Your post is now live!');
+        return redirect()->route('posts.index');
     }
 
-    public function reply(Profile $profile, Post $post, CreatePostRequest $createPostRequest): RedirectResponse
+    public function reply(CreatePostRequest $request, Profile $profile, Post $post): RedirectResponse
     {
-        $currentProfile = Auth::user()->profile;
+        $currentProfile = auth()->user()->profile;
 
-        Post::reply($currentProfile, $post, $createPostRequest->input('content'));
+        Post::reply($currentProfile, $post, $request->validated()['content']);
 
-        return back();
+        return redirect()->route('posts.index');
     }
 
     public function repost(Profile $profile, Post $post)
     {
-        $currentProfile = Auth::user()->profile;
+        $current = auth()->user()->profile;
 
-        Post::repost($currentProfile, $post);
+        Post::repost($current, $post);
 
-        return to_route('posts.index');
+        return redirect()->route('posts.index');
     }
 
-    public function quote(Profile $profile, Post $post, CreatePostRequest $createPostRequest)
+    public function quote(CreatePostRequest $request, Profile $profile, Post $post)
     {
-        $currentProfile = Auth::user()->profile;
+        $current = auth()->user()->profile;
 
-        Post::repost($currentProfile, $post, $createPostRequest->input('content'));
+        Post::repost($current, $post, $request->validated()['content']);
 
-        return to_route('posts.index');
+        return redirect()->route('posts.index');
     }
 
-    public function like(Profile $profile, Post $post): RedirectResponse
+    public function like(Profile $profile, Post $post)
     {
-        $currentProfile = Auth::user()->profile;
+        $current = auth()->user()->profile;
 
-        Like::createLike($currentProfile, $post);
+        $like = Like::createLike($current, $post);
 
-        return back();
-    }
-
-    public function unlike(Profile $profile, Post $post): RedirectResponse
-    {
-        $currentProfile = Auth::user()->profile;
-
-        Like::removeLike($currentProfile, $post);
-
-        return back();
-    }
-
-    public function destroy(Profile $profile, Post $post): RedirectResponse
-    {
-        if (Auth::user()->can('update', $post)) {
-            $post->delete();
+        // Return redirect for browser tests, JSON for AJAX requests
+        if (request()->expectsJson()) {
+            return response()->json(compact('like'));
         }
 
-        $post
-            ->reposts()
-            ->where('profile_id', Auth::user()->profile->id)
-            ->first()
-            ?->delete();
+        return back();
+    }
+
+    public function unlike(Profile $profile, Post $post)
+    {
+        $current = auth()->user()->profile;
+
+        $success = (bool) Like::removeLike($current, $post);
+
+        // Return redirect for browser tests, JSON for AJAX requests
+        if (request()->expectsJson()) {
+            return response()->json(compact('success'));
+        }
 
         return back();
+    }
+
+    public function destroy(Profile $profile, Post $post)
+    {
+        $current = auth()->user()->profile;
+        $success = false;
+
+        // If the current profile is the owner in the URL, they can delete the post directly
+        if ($current->id === $profile->id) {
+            $success = (bool) $post->delete();
+            return response()->json(compact('success'));
+        }
+
+        // Otherwise, maybe this is a pure repost of the original post:
+        $repost = $post->reposts()->where('profile_id', $current->id)->first();
+
+        if ($repost) {
+            $success = (bool) $repost->delete();
+        }
+
+        return response()->json(compact('success'));
     }
 }

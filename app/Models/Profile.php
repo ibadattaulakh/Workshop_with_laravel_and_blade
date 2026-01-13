@@ -15,6 +15,7 @@ class Profile extends Model
         'handle',
         'bio',
         'avatar_url',
+        'cover_url',
     ];
 
     public function user()
@@ -40,21 +41,37 @@ class Profile extends Model
 
     public function followers()
     {
-        return $this->belongsToMany(
-            Profile::class,
-            'follows',
-            'following_profile_id',  // this profile is being followed
-            'follower_profile_id'    // the followers
-        );
+        return $this->belongsToMany(Profile::class, 'follows', 'following_profile_id', 'follower_profile_id');
     }
 
-    public function following()
+    public function followings()
     {
-        return $this->belongsToMany(
-            Profile::class,
-            'follows',
-            'follower_profile_id',   // this profile follows others
-            'following_profile_id'   // the profiles it follows
-        );
+        return $this->belongsToMany(Profile::class, 'follows', 'follower_profile_id', 'following_profile_id');
+    }
+
+    // Helper methods for easier usage in tests and code
+    public function follow(Profile $profile)
+    {
+        return \App\Models\Follow::createFollow($this, $profile);
+    }
+
+    public function unfollow(Profile $profile)
+    {
+        return \App\Models\Follow::removeFollow($this, $profile);
+    }
+
+    public function like(Post $post)
+    {
+        return \App\Models\Like::createLike($this, $post);
+    }
+
+    public function unlike(Post $post)
+    {
+        return \App\Models\Like::removeLike($this, $post);
+    }
+
+    public function repost(Post $post, ?string $content = null)
+    {
+        return \App\Models\Post::repost($this, $post, $content);
     }
 }

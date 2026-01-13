@@ -6,7 +6,6 @@ use App\Models\Follow;
 use App\Models\Like;
 use App\Models\Post;
 use App\Models\Profile;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -16,44 +15,65 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $profiles = Profile::factory()->count(20)->create();
+        // Create 20 profiles
+        $profiles = Profile::factory(20)->create();
 
-        foreach ($profiles as $profile) {
-            Post::factory()->count(5)->create(['profile_id' => $profile->id]);
-        }
+        // Create 5 posts for each profile
+        $profiles->each(function (Profile $profile) {
+            Post::factory(5)->create(['profile_id' => $profile->id]);
+        });
 
+        // Cache all posts
         $posts = Post::all();
 
-        foreach ($profiles as $profile) {
-            $toFollow = $profiles->except($profile->id)->random(rand(3, 7));
+        // Create random follows for each profile (3..7 follows)
+        $profiles->each(function (Profile $profile) use ($profiles) {
+            $toFollow = $profiles
+                ->where('id', '!=', $profile->id)
+                ->shuffle()
+                ->take(rand(3, 7));
 
             foreach ($toFollow as $target) {
+                // Use firstOrCreate to avoid duplicates
                 Follow::createFollow($profile, $target);
             }
-        }
+        });
 
-        foreach ($profiles as $profile) {
-            $toLike = $posts->where('profile_id', '!=', $profile->id)->random(rand(10, 20));
+        // Create likes: each profile likes 10..20 posts not by itself
+        $profiles->each(function (Profile $profile) use ($posts) {
+            $candidates = $posts->where('profile_id', '!=', $profile->id)->shuffle()->take(rand(10, 20));
 
-            foreach ($toLike as $post) {
+            foreach ($candidates as $post) {
                 Like::createLike($profile, $post);
             }
-        }
+        });
 
-        foreach ($profiles as $profile) {
-            $toRepost = $posts->where('profile_id', '!=', $profile->id)->random(rand(2, 5));
+        // Create reposts: each profile reposts 2..5 posts not by itself
+        $profiles->each(function (Profile $profile) use ($posts) {
+            $candidates = $posts->where('profile_id', '!=', $profile->id)->shuffle()->take(rand(2, 5));
 
-            foreach ($toRepost as $post) {
-                Post::repost($profile, $post, rand(0, 1) ? null : 'Great Post!');
+            foreach ($candidates as $post) {
+                Post::repost($profile, $post, rand(0, 1) ? null : 'Great post!');
             }
+        });
+
+        // Create 20..30 replies
+        $replyCount = rand(20, 30);
+        $created = 0;
+
+        while ($created < $replyCount) {
+            $parent = $posts->random();
+
+            // pick a reply author who is NOT the parent post's author
+            $replyAuthor = $profiles->where('id', '!=', $parent->profile_id)->random();
+
+            // create reply post with parent_id
+            Post::factory()->create([
+                'profile_id' => $replyAuthor->id,
+                'parent_id'  => $parent->id,
+            ]);
+
+            $created++;
         }
-
-        for ($ii = 0; $ii < rand(20, 30); $ii++) {
-            $parentPost = $posts->random();
-            $replier = $profiles->where('id', '!=', $parentPost->profile_id)->random();
-
-            Post::factory()->reply($parentPost)->create(['profile_id' => $replier->id]);
-        }
-
     }
 }

@@ -17,12 +17,17 @@ class ProfileFactory extends Factory
      */
     public function definition(): array
     {
+        $handle = $this->faker->unique()->userName();
+
         return [
             'user_id'      => User::factory(),
             'display_name' => $this->faker->name(),
-            'handle'       => $this->faker->unique()->userName(),
+            'handle'       => $handle,
             'bio'          => $this->faker->sentences(3, true),
-            'avatar_url'   => $this->faker->imageUrl(90, 90, 'people'),
+            // Avatar: 80x80 with gray background and black text
+            'avatar_url'   => "https://dummyimage.com/80x80/cccccc/000000&text={$handle}",
+            // Cover: 1400x640, darker bg, orange text (example hex), display handle as text
+            'cover_url'    => "https://dummyimage.com/1400x640/555555/ff8800&text={$handle}",
         ];
     }
 }

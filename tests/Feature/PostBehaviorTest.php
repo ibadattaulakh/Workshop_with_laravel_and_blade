@@ -74,22 +74,28 @@ it('can create quote repost', function () {
     expect($original->reposts()->count())->toBe(1);
 });
 
-test('prevent duplicate reposts', function () {
+it('prevents duplicate reposts', function () {
     $original = Post::factory()->create();
-    $profile = Profile::factory()->create();
+    $profile  = Profile::factory()->create();
 
-    $post = Post::repost($profile, $original);
-    $r2 = Post::repost($profile, $original);
+    $first  = Post::repost($profile, $original);
+    $second = Post::repost($profile, $original);
 
-    expect($post->id)->toBe($r2->id);
+    expect($first->is($second))->toBeTrue();
+    expect($original->reposts()->where('profile_id', $profile->id)->count())->toBe(1);
 });
 
-test('remove a repost', function () {
+it('can remove a repost', function () {
     $original = Post::factory()->create();
-    $profile = Post::factory()->repost($original)->create()->profile;
+    $profile  = Profile::factory()->create();
 
-    $success = Post::removeRepost($profile, $original);
+    // create repost
+    $repost = Post::repost($profile, $original);
+    expect($repost)->not->toBeNull();
 
-    expect($original->reposts)->toHaveCount(0)
-        ->and($success)->toBeTrue();
+    // remove repost
+    $removed = Post::removeRepost($profile, $original);
+    expect($removed)->toBeTrue();
+
+    expect($original->reposts()->where('profile_id', $profile->id)->count())->toBe(0);
 });

@@ -7,41 +7,38 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('profile can like post', function () {
-    $profile = Profile::factory()->create();
+it('allows a profile to like a post', function () {
     $post = Post::factory()->create();
+    $profile = Profile::factory()->create();
 
     $like = Like::createLike($profile, $post);
 
-    expect($profile->likes)->toHaveCount(1)
-        ->and($profile->likes->contains($like))->toBeTrue()
-        ->and($post->likes)->toHaveCount(1)
-        ->and($post->likes->contains($like))->toBeTrue()
-        ->and($like->post->is($post))->toBeTrue()
-        ->and($like->profile->is($profile))->toBeTrue();
+    expect($like->id)->toBeInt();
+    expect($like->profile_id)->toBe($profile->id);
+    expect($like->post_id)->toBe($post->id);
+    expect($profile->likes()->count())->toBe(1);
+    expect($post->likes()->count())->toBe(1);
 });
 
-test('cannot create duplicate likes', function () {
-    $profile = Profile::factory()->create();
+it('prevents duplicate likes', function () {
     $post = Post::factory()->create();
+    $profile = Profile::factory()->create();
 
-    $l1 = Like::createLike($profile, $post);
-    $l2 = Like::createLike($profile, $post);
+    $first  = Like::createLike($profile, $post);
+    $second = Like::createLike($profile, $post);
 
-    expect($l1->id)->toBe($l2->id);
+    expect($first->is($second))->toBeTrue();
+    expect($post->likes()->where('profile_id', $profile->id)->count())->toBe(1);
 });
 
-test('can remove a like', function () {
-    $profile = Profile::factory()->create();
+it('can remove a like', function () {
     $post = Post::factory()->create();
+    $profile = Profile::factory()->create();
 
     $like = Like::createLike($profile, $post);
 
-    $success = Like::removeLike($profile, $post);
+    $removed = Like::removeLike($profile, $post);
 
-    expect($profile->likes)->toHaveCount(0)
-        ->and($profile->likes->contains($like))->toBeFalse()
-        ->and($post->likes)->toHaveCount(0)
-        ->and($post->likes->contains($like))->toBeFalse()
-        ->and($success)->toBeTrue();
+    expect($removed)->toBeTrue();
+    expect($post->likes()->where('profile_id', $profile->id)->count())->toBe(0);
 });
