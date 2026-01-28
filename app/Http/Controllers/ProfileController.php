@@ -1,58 +1,62 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Http\Controllers;
 
 use App\Models\Follow;
+use App\Models\Post;
 use App\Models\Profile;
-use App\Queries\ProfilePageQuery;
-use App\Queries\ProfileWithRepliesQuery;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
 
 class ProfileController extends Controller
 {
     public function show(Profile $profile)
     {
+        // Profile follower/following counts
         $profile->loadCount(['followings', 'followers']);
 
-        $profile->has_followed = Auth::user()->profile->isFollowing($profile);
+        $viewer = auth()->check() ? auth()->user()->profile : null;
+        
+        $posts = \App\Queries\ProfilePageQuery::for($profile, $viewer)->get();
 
-        $posts = ProfilePageQuery::for($profile, Auth::user()?->profile)->get();
-
-        return Inertia::render('Profiles/Show', [
-            'profile' => $profile->toResource(),
-            'posts' => $posts->toResourceCollection(),
-        ]);
+        return view('profiles.show', compact('profile', 'posts'));
     }
 
     public function replies(Profile $profile)
     {
+        // Profile follower/following counts
         $profile->loadCount(['followings', 'followers']);
 
-        $posts = ProfileWithRepliesQuery::for($profile, Auth::user()?->profile)->get();
+        $viewer = auth()->check() ? auth()->user()->profile : null;
+        
+        $posts = \App\Queries\ProfileWithRepliesQuery::for($profile, $viewer)->get();
 
-        return Inertia::render('Profiles/Show', [
-            'profile' => $profile->toResource(),
-            'posts' => $posts->toResourceCollection(),
-        ]);
+        return view('profiles.replies', compact('profile', 'posts'));
     }
 
     public function follow(Profile $profile)
     {
-        $currentProfile = Auth::user()->profile;
+        $current = auth()->user()->profile;
 
-        Follow::createFollow($currentProfile, $profile);
+        $follow = Follow::createFollow($current, $profile);
+
+        // Return redirect with message for browser tests, JSON for AJAX requests
+        if (request()->expectsJson()) {
+            return response()->json(compact('follow'));
+        }
 
         return back()->with('success', 'You are now following '.$profile->handle);
     }
 
     public function unfollow(Profile $profile)
     {
-        $currentProfile = Auth::user()->profile;
+        $current = auth()->user()->profile;
 
-        Follow::removeFollow($currentProfile, $profile);
+        $success = (bool) Follow::removeFollow($current, $profile);
+
+        // Return redirect with message for browser tests, JSON for AJAX requests
+        if (request()->expectsJson()) {
+            return response()->json(compact('success'));
+        }
 
         return back()->with('success', 'You have now unfollowed '.$profile->handle);
     }

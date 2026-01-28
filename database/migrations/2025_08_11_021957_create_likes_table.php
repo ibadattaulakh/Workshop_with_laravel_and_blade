@@ -13,11 +13,16 @@ return new class extends Migration
     {
         Schema::create('likes', function (Blueprint $table) {
             $table->id();
+
             $table->foreignId('profile_id')->constrained()->cascadeOnDelete();
             $table->foreignId('post_id')->constrained()->cascadeOnDelete();
+
             $table->timestamps();
 
-            $table->unique(['profile_id', 'post_id']);
+            // prevent duplicate likes from the same profile on the same post
+            $table->unique(['profile_id', 'post_id'], 'unique_profile_post_like');
+
+            // useful index for fetching likes/counts for a post (e.g. timeline)
             $table->index(['post_id', 'created_at']);
         });
     }

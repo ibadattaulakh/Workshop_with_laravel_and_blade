@@ -67,10 +67,15 @@ class ProfileWithRepliesQuery
 
     private function normalize(Post $post): Post
     {
-        if ($post->isRepost() && is_null($post->content)) {
-            $post->repostOf->has_liked = (bool) $post->like_original;
-            $post->repostOf->has_reposted = (bool) $post->repost_original;
+        // If this post is a pure repost (no content), then copy the "original" flags
+        if ($post->repostOf && $post->content === null) {
+            $post->repostOf->has_liked = (bool) ($post->like_original ?? $post->has_liked);
+            $post->repostOf->has_reposted = (bool) ($post->repost_original ?? $post->has_reposted);
         }
+
+        // cast top-level flags
+        $post->has_liked = (bool) ($post->has_liked ?? false);
+        $post->has_reposted = (bool) ($post->has_reposted ?? false);
 
         return $post;
     }

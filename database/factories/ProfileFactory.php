@@ -20,12 +20,14 @@ class ProfileFactory extends Factory
         $handle = $this->faker->unique()->userName();
 
         return [
-            'user_id' => User::factory(),
+            'user_id'      => User::factory(),
             'display_name' => $this->faker->name(),
-            'handle' => $handle,
-            'bio' => $this->faker->sentences(3, true),
-            'avatar_url' => 'https://i.pravatar.cc/90?u='.$handle,
-            'cover_url' => 'http://dummyimage.com/1400x640/555/ECA749?text='.$handle,
+            'handle'       => $handle,
+            'bio'          => $this->faker->sentences(3, true),
+            // Avatar: 80x80 with gray background and black text
+            'avatar_url'   => "https://dummyimage.com/80x80/cccccc/000000&text={$handle}",
+            // Cover: 1400x640, darker bg, orange text (example hex), display handle as text
+            'cover_url'    => "https://dummyimage.com/1400x640/555555/ff8800&text={$handle}",
         ];
     }
 }

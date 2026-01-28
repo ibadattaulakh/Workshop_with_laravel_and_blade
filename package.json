@@ -20,7 +20,7 @@
     "dependencies": {
         "@headlessui/vue": "^1.7.23",
         "@inertiajs/vue3": "^2.2.15",
-        "playwright": "^1.56.1",
+        "playwright": "^1.57.0",
         "vue": "^3.5.24",
         "ziggy-js": "^2.6.0"
     }

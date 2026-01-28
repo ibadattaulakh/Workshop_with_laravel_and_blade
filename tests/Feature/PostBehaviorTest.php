@@ -1,89 +1,101 @@
 <?php
 
-use App\Models\Post;
 use App\Models\Profile;
+use App\Models\Post;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('allows a profile to publish a post', function () {
+it('allows a profile to publish a post', function () {
+    // Arrange: create a profile
     $profile = Profile::factory()->create();
 
-    $post = Post::publish($profile, 'Content of the post');
+    // Act: publish a post for the profile
+    $post = Post::publish($profile, 'Hello world');
 
-    expect($post->exists)->toBeTrue()
-        ->and($post->profile->is($profile))->toBeTrue()
-        ->and($post->parent_id)->toBeNull()
-        ->and($post->repost_of_id)->toBeNull();
+    // Assert: post exists and attributes are correct
+    expect($post)->not->toBeNull();
+    expect($post->profile_id)->toBe($profile->id);
+    expect($post->content)->toBe('Hello world');
+    expect($post->parent_id)->toBeNull();
+    expect($post->repost_of_id)->toBeNull();
 });
 
-test('can reply to post', function () {
+it('can reply to post', function () {
+    $original = Post::factory()->create();
+    $profile  = Profile::factory()->create();
+
+    $reply = Post::reply($profile, $original, 'Nice post!');
+
+    expect($reply->parent->is($original))->toBeTrue();
+    expect($original->replies()->count())->toBe(1);
+});
+
+it('can have many replies', function () {
     $original = Post::factory()->create();
 
-    $replier = Profile::factory()->create();
-    $reply = Post::reply($replier, $original, 'reply content');
+    // create 4 replies for the original
+    Post::factory()->count(4)->reply($original)->create();
 
-    expect($reply->parent->is($original))->toBeTrue()
-        ->and($original->replies)->toHaveCount(1);
+    expect($original->replies()->count())->toBe(4);
+    expect($original->replies->first()->parent->is($original))->toBeTrue();
 });
 
-test('can have many replies', function () {
+it('can create plain repost', function () {
     $original = Post::factory()->create();
-    $replies = Post::factory()->count(4)->reply($original)->create();
+    $profile  = Profile::factory()->create();
 
-    expect($replies->first()->parent->is($original))->toBeTrue()
-        ->and($original->replies)->toHaveCount(4)
-        ->and($original->replies->contains($replies->first()))->toBeTrue();
+    $repost = Post::repost($profile, $original);
+
+    expect($repost->repostOf->is($original))->toBeTrue();
+    expect($repost->content)->toBeNull();
+    expect($original->reposts()->count())->toBe(1);
 });
 
-test('create plain repost', function () {
+it('can have many reposts', function () {
     $original = Post::factory()->create();
 
-    $repostProfile = Profile::factory()->create();
-    $repost = Post::repost($repostProfile, $original);
+    // create 4 reposts for the original
+    Post::factory()->count(4)->repost($original)->create();
 
-    expect($repost->repostOf->is($original))->toBeTrue()
-        ->and($original->reposts)->toHaveCount(1)
-        ->and($repost->content)->toBeNull();
+    expect($original->reposts()->count())->toBe(4);
+    expect($original->reposts->first()->repostOf->is($original))->toBeTrue();
 });
 
-test('can have many reposts', function () {
-    $original = Post::factory()->create();
-    $reposts = Post::factory()->count(4)->repost($original)->create();
-
-    expect($reposts->first()->repostOf->is($original))->toBeTrue()
-        ->and($original->reposts)->toHaveCount(4)
-        ->and($original->reposts->contains($reposts->first()))->toBeTrue();
-});
-
-test('create quote repost', function () {
+it('can create quote repost', function () {
     $content = 'quote content';
     $original = Post::factory()->create();
+    $profile  = Profile::factory()->create();
 
-    $repostProfile = Profile::factory()->create();
-    $repost = Post::repost($repostProfile, $original, $content);
+    $repost = Post::repost($profile, $original, $content);
 
-    expect($repost->repostOf->is($original))->toBeTrue()
-        ->and($original->reposts)->toHaveCount(1)
-        ->and($repost->content)->toBe($content);
+    expect($repost->repostOf->is($original))->toBeTrue();
+    expect($repost->content)->toBe($content);
+    expect($original->reposts()->count())->toBe(1);
 });
 
-test('prevent duplicate reposts', function () {
+it('prevents duplicate reposts', function () {
     $original = Post::factory()->create();
-    $profile = Profile::factory()->create();
+    $profile  = Profile::factory()->create();
 
-    $post = Post::repost($profile, $original);
-    $r2 = Post::repost($profile, $original);
+    $first  = Post::repost($profile, $original);
+    $second = Post::repost($profile, $original);
 
-    expect($post->id)->toBe($r2->id);
+    expect($first->is($second))->toBeTrue();
+    expect($original->reposts()->where('profile_id', $profile->id)->count())->toBe(1);
 });
 
-test('remove a repost', function () {
+it('can remove a repost', function () {
     $original = Post::factory()->create();
-    $profile = Post::factory()->repost($original)->create()->profile;
+    $profile  = Profile::factory()->create();
 
-    $success = Post::removeRepost($profile, $original);
+    // create repost
+    $repost = Post::repost($profile, $original);
+    expect($repost)->not->toBeNull();
 
-    expect($original->reposts)->toHaveCount(0)
-        ->and($success)->toBeTrue();
+    // remove repost
+    $removed = Post::removeRepost($profile, $original);
+    expect($removed)->toBeTrue();
+
+    expect($original->reposts()->where('profile_id', $profile->id)->count())->toBe(0);
 });

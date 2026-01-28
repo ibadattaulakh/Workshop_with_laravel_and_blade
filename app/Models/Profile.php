@@ -1,76 +1,77 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use Database\Factories\ProfileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Profile extends Model
 {
-    /** @use HasFactory<ProfileFactory> */
     use HasFactory;
 
     protected $fillable = [
-        // 'name',
+        'user_id',
         'display_name',
         'handle',
         'bio',
         'avatar_url',
+        'cover_url',
     ];
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function posts(): HasMany
+    public function posts()
     {
         return $this->hasMany(Post::class);
     }
 
-    public function topLevelPosts(): HasMany
+    public function topLevelPosts()
     {
+        // Only posts that are not replies (parent_id is null)
         return $this->hasMany(Post::class)->whereNull('parent_id');
     }
 
-    public function likes(): HasMany
+    public function likes()
     {
         return $this->hasMany(Like::class);
     }
 
-    public function follow(Profile $profile): void
+    public function followers()
     {
-        Follow::createFollow($this, $profile);
+        return $this->belongsToMany(Profile::class, 'follows', 'following_profile_id', 'follower_profile_id');
     }
 
-    public function followers(): BelongsToMany
+    public function followings()
     {
-        return $this->belongsToMany(
-            Profile::class,
-            'follows',
-            'following_profile_id',
-            'follower_profile_id',
-        );
+        return $this->belongsToMany(Profile::class, 'follows', 'follower_profile_id', 'following_profile_id');
     }
 
-    public function followings(): BelongsToMany
+    // Helper methods for easier usage in tests and code
+    public function follow(Profile $profile)
     {
-        return $this->belongsToMany(
-            Profile::class,
-            'follows',
-            'follower_profile_id',
-            'following_profile_id',
-        );
+        return \App\Models\Follow::createFollow($this, $profile);
     }
 
-    public function isFollowing(Profile $profile): bool
+    public function unfollow(Profile $profile)
     {
-        return $this->followings()->where('following_profile_id', $profile->id)->exists();
+        return \App\Models\Follow::removeFollow($this, $profile);
+    }
+
+    public function like(Post $post)
+    {
+        return \App\Models\Like::createLike($this, $post);
+    }
+
+    public function unlike(Post $post)
+    {
+        return \App\Models\Like::removeLike($this, $post);
+    }
+
+    public function repost(Post $post, ?string $content = null)
+    {
+        return \App\Models\Post::repost($this, $post, $content);
     }
 }
