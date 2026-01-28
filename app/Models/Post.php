@@ -36,6 +36,11 @@ class Post extends Model
         return $this->hasMany(Like::class);
     }
 
+    public function bookmarks()
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
     public function repostOf()
     {
         // repost_of_id is the FK on the repost that points to the original Post
@@ -56,9 +61,9 @@ class Post extends Model
     public static function publish(Profile $profile, string $content): self
     {
         return static::create([
-            'profile_id'   => $profile->id,
-            'content'      => $content,
-            'parent_id'    => null, // not a reply
+            'profile_id' => $profile->id,
+            'content' => $content,
+            'parent_id' => null, // not a reply
             'repost_of_id' => null, // not a repost
         ]);
     }
@@ -67,8 +72,8 @@ class Post extends Model
     {
         return static::create([
             'profile_id' => $profile->id,
-            'parent_id'  => $original->id,
-            'content'    => $content,
+            'parent_id' => $original->id,
+            'content' => $content,
         ]);
     }
 
@@ -77,11 +82,11 @@ class Post extends Model
     {
         return static::firstOrCreate(
             [
-                'profile_id'   => $profile->id,
+                'profile_id' => $profile->id,
                 'repost_of_id' => $original->id,
             ],
             [
-                'content'   => $content,
+                'content' => $content,
                 'parent_id' => null,
             ]
         );
