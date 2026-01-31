@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Git Worktree Helper Script
+# Creates a new worktree with Laravel setup
+
+PROJECT_NAME="laravel-workshop"
+FEATURE="$1"
+
+if [ -z "$FEATURE" ]; then
+    echo "Usage: bin/worktree <feature-name>"
+    echo "Example: bin/worktree bookmarking"
+    exit 1
+fi
+
+WORKTREE_DIR="../${PROJECT_NAME}-${FEATURE}"
+
+# Check if worktree already exists
+if [ -d "$WORKTREE_DIR" ]; then
+    echo "Error: Worktree $WORKTREE_DIR already exists"
+    echo "Remove it first with: git worktree remove $WORKTREE_DIR"
+    exit 1
+fi
+
+echo "Creating worktree: $WORKTREE_DIR"
+git worktree add -b "$FEATURE" "$WORKTREE_DIR"
+
+cd "$WORKTREE_DIR"
+
+echo "Running composer install..."
+composer install --no-interaction --prefer-dist
+
+echo "Running npm install..."
+npm install
+
+echo "Copying .env if needed..."
+if [ ! -f .env ]; then
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo "Copied .env.example to .env"
+    fi
+fi
+
+echo "Running post-create scripts..."
+# Run post-create-project-cmd if it exists
+composer run post-create-project-cmd 2>/dev/null || true
+
+echo "Generating app key..."
+php artisan key:generate --force
+
+echo "Setting up database..."
+# Create SQLite database if it doesn't exist
+if [ ! -f database/database.sqlite ]; then
+    touch database/database.sqlite
+    echo "Created database/database.sqlite"
+fi
+
+echo "Running migrations..."
+php artisan migrate --force
+
+echo "Building assets..."
+npm run build
+
+echo ""
+echo "✅ Worktree $WORKTREE_DIR is ready!"
+echo ""
+echo "To use it:"
+echo "  cd $WORKTREE_DIR"
+echo ""
+echo "To remove it later:"
+echo "  git worktree remove $WORKTREE_DIR"
+echo ""
