@@ -1,5 +1,5 @@
 <script setup>
-
+import { Link } from '@inertiajs/vue3';
 </script>
 
 <template>
@@ -96,10 +96,10 @@
                         A place for the cool squares.
                     </h1>
                     <div class="mt-8 flex flex-col gap-3 text-center sm:mt-12 md:mt-16 md:w-68">
-                        <a class="bg-pixl-dark/50 hover:bg-pixl-dark/60 active:bg-pixl-dark/75 border-pixl/50 hover:border-pixl/60 active:border-pixl/75 text-pixl border px-4 py-1.5"
-                            href="/feed">Sign in with Google</a>
-                        <a class="bg-pixl-dark/50 hover:bg-pixl-dark/60 active:bg-pixl-dark/75 border-pixl/50 hover:border-pixl/60 active:border-pixl/75 text-pixl border px-4 py-1.5"
-                            href="/feed">Sign in with Apple</a>
+                        <Link class="bg-pixl-dark/50 hover:bg-pixl-dark/60 active:bg-pixl-dark/75 border-pixl/50 hover:border-pixl/60 active:border-pixl/75 text-pixl border px-4 py-1.5"
+                            href="/home">Sign in with Google</Link>
+                        <Link class="bg-pixl-dark/50 hover:bg-pixl-dark/60 active:bg-pixl-dark/75 border-pixl/50 hover:border-pixl/60 active:border-pixl/75 text-pixl border px-4 py-1.5"
+                            href="/home">Sign in with Apple</Link>
                         <p>or</p>
 
                         <a class="bg-pixl hover:bg-pixl/90 active:bg-pixl/95 text-pixl-dark border border-transparent px-4 py-1.5"

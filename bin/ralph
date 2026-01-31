@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Ralph Wiggum Technique
+# Automated agent workflow that reads tasks.md, picks one task, implements it,
+# tests, formats, commits, and updates tasks.md
+
+# Usage: bin/ralph [max_iterations]
+MAX_ITERATIONS=${1:-10}
+TASK_FILE="tasks.md"
+COMPLETE_FLAG="ralph_complete"
+
+echo "🤖 Ralph Wiggum Technique - Automated Task Execution"
+echo "Max iterations: $MAX_ITERATIONS"
+echo ""
+
+for i in $(seq 1 "$MAX_ITERATIONS"); do
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Iteration $i of $MAX_ITERATIONS"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+
+  # Exit if we've created the completion flag
+  if [[ -f "$COMPLETE_FLAG" ]]; then
+    echo "✅ All tasks are now complete (found $COMPLETE_FLAG). Exiting."
+    rm -f "$COMPLETE_FLAG"
+    exit 0
+  fi
+
+  # Check if tasks file exists
+  if [[ ! -f "$TASK_FILE" ]]; then
+    echo "❌ Error: $TASK_FILE not found"
+    exit 1
+  fi
+
+  # Read the tasks file into the prompt for the agent
+  AGENT_PROMPT=$(cat <<'PROMPT'
+Read tasks.md. Choose ONE suitable incomplete task from the "Incomplete Tasks" section.
+
+For the chosen task:
+1. Implement the change in the repository
+2. Write tests if practical (testing is non-negotiable - see testing-requirements-guide.md)
+3. Run the test suite: `php artisan test --compact` (do not stop until tests are green)
+4. Run formatters: `composer run format`
+5. Verify tests still pass after formatting
+6. Commit the changes with a descriptive message
+7. Update tasks.md:
+   - Mark the completed task as [x] in the "Incomplete Tasks" section
+   - Add a progress entry in the "Progress" section describing what was done and when
+
+If there are no remaining incomplete tasks, create a file named `ralph_complete`.
+
+Important:
+- Work on ONE task at a time
+- Tests must pass before considering work complete
+- Follow existing code conventions
+- Use existing patterns and structure
+PROMPT
+)
+
+  echo "📋 Reading tasks from $TASK_FILE..."
+  echo "🤖 Starting agent..."
+  echo ""
+
+  # Call the agent (adjust for your agent CLI)
+  # Example for Claude Code - adjust flags as needed
+  # For interactive mode: remove --non-interactive
+  # For non-interactive: add --non-interactive --auto-approve
+  
+  # Note: Replace with your actual agent CLI command
+  # Example: claude --non-interactive --stdin <<< "$AGENT_PROMPT"
+  # Or: echo "$AGENT_PROMPT" | your-agent-cli
+  
+  echo "⚠️  Agent execution placeholder"
+  echo "Replace this section with your actual agent CLI call"
+  echo ""
+  echo "Prompt sent to agent:"
+  echo "────────────────────────────────────────────────────────────────────────────"
+  echo "$AGENT_PROMPT"
+  echo "────────────────────────────────────────────────────────────────────────────"
+  echo ""
+
+  # After the agent finishes, run local verification steps
+  echo "🔍 Running verification steps..."
+  echo ""
+
+  # Install dependencies (in case agent added new ones)
+  echo "📦 Installing dependencies..."
+  composer install --no-interaction --no-progress --quiet || true
+
+  # Run tests
+  echo "🧪 Running tests..."
+  php artisan test --compact || {
+    echo "❌ Tests failed! Agent should have fixed this."
+    echo "Continuing to next iteration..."
+    echo ""
+    continue
+  }
+
+  # Run formatters
+  echo "🎨 Running formatters..."
+  composer run format || {
+    echo "⚠️  Formatting had issues, but continuing..."
+  }
+
+  # Verify tests still pass after formatting
+  echo "🧪 Verifying tests still pass after formatting..."
+  php artisan test --compact --quiet || {
+    echo "❌ Tests failed after formatting!"
+    echo "Continuing to next iteration..."
+    echo ""
+    continue
+  }
+
+  # If there are uncommitted changes, commit them
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "📝 Committing changes..."
+    git add -A
+    git commit -m "Ralph: automated changes (iteration $i)" || {
+      echo "⚠️  Commit failed (may already be committed by agent)"
+    }
+  else
+    echo "✅ No uncommitted changes"
+  fi
+
+  echo ""
+  echo "✅ Completed iteration $i"
+  echo ""
+done
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Reached maximum iterations ($MAX_ITERATIONS). Exiting."
+echo ""
+
+# Check if complete flag was created
+if [[ -f "$COMPLETE_FLAG" ]]; then
+  echo "✅ All tasks completed!"
+  rm -f "$COMPLETE_FLAG"
+else
+  echo "⚠️  Some tasks may remain incomplete. Check $TASK_FILE"
+fi
+
+exit 0

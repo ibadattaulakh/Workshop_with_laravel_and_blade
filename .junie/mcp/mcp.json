@@ -6,6 +6,10 @@
                 "/Users/admin/roots/laravel-workshop/artisan",
                 "boost:mcp"
             ]
+        },
+        "context-seven": {
+            "url": "https://api.context7.com",
+            "apiKey": "${CONTEXT_SEVEN_API_KEY}"
         }
     }
 }
